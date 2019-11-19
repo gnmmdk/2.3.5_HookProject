@@ -1,0 +1,2 @@
+1、需要读写sdcard的权限！！！
+2、宿主和插件的引入的库版本必须一样。例如： implementation 'androidx.appcompat:appcompat:1.1.0'

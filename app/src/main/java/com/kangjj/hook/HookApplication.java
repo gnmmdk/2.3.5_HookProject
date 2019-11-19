@@ -58,6 +58,8 @@ public class HookApplication extends Application {
         }
 
         try{
+
+            //将该代码替换到课堂代码是可以运行， hook跟android版本有关，也需要配置AndroidStudio的环境 compileSdkVersion  targetSdkVersion?
             plugin2AppAction();
         }catch (Exception e){
             e.printStackTrace();
@@ -174,7 +176,7 @@ public class HookApplication extends Application {
                     }
                     break;
             }
-            mH.handleMessage(msg);      //这里也不传mH进来，但是最后要返回 return false
+            mH.handleMessage(msg);      //这里也可以不传mH进来，但是最后要返回 return false
             return true;        //表示不执行系统的代码
 //            return false;//表示继续执行系统的代码
         }

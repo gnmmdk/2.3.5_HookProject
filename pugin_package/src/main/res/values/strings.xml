@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">pugin_package</string>
+    <string name="str_plugin">这里是插件页面</string>
 </resources>

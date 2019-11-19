@@ -56,7 +56,7 @@ public class HookApplication2 extends Application {
         }
 
         try{
-//            plugin2AppAction();
+            plugin2AppAction();
         }catch (Exception e){
             e.printStackTrace();
             Log.d("hook", "plugin2AppAction 失败 e:" + e.toString());
