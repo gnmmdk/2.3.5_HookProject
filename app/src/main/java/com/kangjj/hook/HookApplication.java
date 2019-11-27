@@ -3,6 +3,10 @@ package com.kangjj.hook;
 import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.media.MediaCodec;
@@ -16,6 +20,7 @@ import androidx.annotation.NonNull;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
@@ -23,12 +28,13 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import dalvik.system.DexClassLoader;
 import dalvik.system.PathClassLoader;
 
 /**
- * 适配7.1.1源码
+ * 适配7.1.1源码 注意一定要申请存储权限
  */
 public class HookApplication extends Application {
     // 增加权限的管理
@@ -56,14 +62,22 @@ public class HookApplication extends Application {
             e.printStackTrace();
             Log.d("hook", "hookLuanchActivity 失败 e:" + e.toString());
         }
+//         融合方式Dex方式
+//        try{
+//            //将该代码替换到课堂代码是可以运行， hook跟android版本有关，也需要配置AndroidStudio的环境 compileSdkVersion  targetSdkVersion?
+//            plugin2AppAction();
+//        }catch (Exception e){
+//            e.printStackTrace();
+//            Log.d("hook", "plugin2AppAction 失败 e:" + e.toString());
+//        }
 
-        try{
-
-            //将该代码替换到课堂代码是可以运行， hook跟android版本有关，也需要配置AndroidStudio的环境 compileSdkVersion  targetSdkVersion?
-            plugin2AppAction();
-        }catch (Exception e){
+        try {
+//          自己创造一个LoadedApk.ClassLoader 添加到 mPackages，此LoadedApk 专门用来加载插件里面的 class
+//          HookCallback也要处理
+            customLoadedApkAction();
+        } catch (Exception e) {
             e.printStackTrace();
-            Log.d("hook", "plugin2AppAction 失败 e:" + e.toString());
+            Log.d("hook", "customLoadedApkAction 失败 e:" + e.toString());
         }
     }
 
@@ -169,7 +183,21 @@ public class HookApplication extends Application {
                             }else{
                                 mIntentField.set(obj,new Intent(HookApplication.this,PermissionActivity.class));
                             }*/
-                        mIntentField.set(obj,actionIntent);
+                            mIntentField.set(obj,actionIntent);
+                            /*****************************************LoadedApk方式*******************************************/
+                            Field activityInfoField = obj.getClass().getDeclaredField("activityInfo");
+                            activityInfoField.setAccessible(true);
+                            ActivityInfo activityInfo = (ActivityInfo) activityInfoField.get(obj);
+
+                            if(actionIntent.getPackage() == null){// 证明是插件
+                                activityInfo.applicationInfo.packageName = actionIntent.getComponent().getPackageName();
+
+                                //Hook拦截此 getPackageInfo做自己的逻辑
+                                hookGetPackageInfo();
+                            }else{
+                                activityInfo.applicationInfo.packageName = actionIntent.getPackage();
+                            }
+                            /*****************************************LoadedApk方式*******************************************/
                         }
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -180,8 +208,7 @@ public class HookApplication extends Application {
             return true;        //表示不执行系统的代码
 //            return false;//表示继续执行系统的代码
         }
-    };
-
+    }
 
     private File pluginFile;
     private AssetManager assetManager;
@@ -274,5 +301,101 @@ public class HookApplication extends Application {
     @Override
     public AssetManager getAssets() {
         return assetManager == null ? super.getAssets() : assetManager;
+    }
+
+    /**
+     * 自己创造一个LoadedApk.ClassLoader添加到mPackages，此LoadedApk专门用来加载插件里面的class
+     * @throws Exception
+     */
+    private void customLoadedApkAction() throws Exception{
+        pluginFile = new File(Environment.getExternalStorageDirectory() + File.separator + "kangjj.plugin");
+        if (!pluginFile.exists()) {
+            throw new FileNotFoundException("插件包不存在..." + pluginFile.getAbsolutePath());
+        }
+
+        Class<?> mActivityThreadClazz = Class.forName("android.app.ActivityThread");
+        Method mCurrentActivityThreadMethod = mActivityThreadClazz.getMethod("currentActivityThread");
+        Object mActivityThreadObj = mCurrentActivityThreadMethod.invoke(null);
+
+        Field mPackagesField = mActivityThreadClazz.getDeclaredField("mPackages");
+        mPackagesField.setAccessible(true);
+        Object mPackagesObj = mPackagesField.get(mActivityThreadObj);
+
+        Class<?> mCompatibilityInfoClazz = Class.forName("android.content.res.CompatibilityInfo");
+        Field mCompatibilityInfoField = mCompatibilityInfoClazz.getField("DEFAULT_COMPATIBILITY_INFO");
+        Object mCompatibilityInfoObj = mCompatibilityInfoField.get(null);
+
+        ApplicationInfo applicationInfo = getApplicationInfoAction();
+
+        // 使用getPackageInfoNoCheck创建LoadedApk，以供下方加入到mPackages
+        //public final LoadedApk getPackageInfoNoCheck(ApplicationInfo ai,CompatibilityInfo compatInfo)
+        Method mGetPackageInfoNoCheckMethod = mActivityThreadClazz.getMethod("getPackageInfoNoCheck", ApplicationInfo.class, mCompatibilityInfoClazz);
+        Object mLoadedApk = mGetPackageInfoNoCheckMethod.invoke(mActivityThreadObj,applicationInfo , mCompatibilityInfoObj);
+
+        File dirFile = getDir("pluginPathDir",Context.MODE_PRIVATE);
+        ClassLoader classLoader = new PluginClassLoader(pluginFile.getAbsolutePath(),dirFile.getAbsolutePath(),null,getClassLoader());
+
+        Field mClassLoaderField = mLoadedApk.getClass().getDeclaredField("mClassLoader");
+        mClassLoaderField.setAccessible(true);
+        mClassLoaderField.set(mLoadedApk,classLoader);// 替换 LoadedApk 里面的 ClassLoader
+
+        //ArrayMap<String, WeakReference<LoadedApk>> mPackages
+        Map mPackages = (Map)mPackagesObj;
+        // 添加自定义的 LoadedApk 专门加载 插件里面的 class
+        // 最终的目标 mPackages.put(插件的包名，插件的LoadedApk);
+        WeakReference weakReference = new WeakReference(mLoadedApk);// 放入 自定义的LoadedApk --》 插件的
+        mPackages.put(applicationInfo.packageName,weakReference);// 增加了我们自己的LoadedApk
+    }
+
+    private ApplicationInfo getApplicationInfoAction() throws Exception{
+        Class<?> mPackageParserClazz = Class.forName("android.content.pm.PackageParser");
+        Object mPackageParserObj = mPackageParserClazz.newInstance();
+
+        Class<?> mPackageClazz = Class.forName("android.content.pm.PackageParser$Package");
+
+        Class<?> mPackageUserStateClazz = Class.forName("android.content.pm.PackageUserState");
+        Object mPackageUserStateObj = mPackageUserStateClazz.newInstance();
+        Method mGenerateApplicationInfoMethod = mPackageParserClazz.getMethod("generateApplicationInfo", mPackageClazz, int.class, mPackageUserStateClazz);
+
+//        public Package parsePackage(File packageFile, int flags)
+        Method mParsePackageMethod = mPackageParserClazz.getMethod("parsePackage", File.class, int.class);
+        Object mPackageObj = mParsePackageMethod.invoke(mPackageParserObj, pluginFile, PackageManager.GET_ACTIVITIES);
+
+//        public static ApplicationInfo generateApplicationInfo(Package p, int flags,PackageUserState state)
+        ApplicationInfo applicationInfo = (ApplicationInfo) mGenerateApplicationInfoMethod.invoke(null, mPackageObj, 0, mPackageUserStateObj);
+
+        // 获得的 ApplicationInfo 就是插件的 ApplicationInfo
+        // 我们这里获取的 ApplicationInfo
+        // applicationInfo.publicSourceDir = 插件的路径；
+        // applicationInfo.sourceDir = 插件的路径；
+        String pluginPath = pluginFile.getAbsolutePath();
+        applicationInfo.publicSourceDir = pluginPath;
+        applicationInfo.sourceDir = pluginPath;
+
+        return applicationInfo;
+    }
+
+    private void hookGetPackageInfo() throws Exception{
+
+        Class<?> mActivityThreadClazz = Class.forName("android.app.ActivityThread");
+        Field sPackageManagerField = mActivityThreadClazz.getDeclaredField("sPackageManager");
+        sPackageManagerField.setAccessible(true);
+        final Object mIPackageManagerObj = sPackageManagerField.get(null);
+
+//        Method mGetPackageManagerMethod = mActivityThreadClazz.getMethod("getPackageManager");
+//        final Object mIPackageManagerObj = mGetPackageManagerMethod.invoke(null);
+
+        Class<?> mIPackageManagerCLazz = Class.forName("android.content.pm.IPackageManager");
+        Object mIPackageManagerProxy = Proxy.newProxyInstance(getClassLoader(), new Class[]{mIPackageManagerCLazz}, new InvocationHandler() {
+            @Override
+            public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                if(method.getName().equals("getPackageInfo")){
+                    return new PackageInfo();
+                }
+                return method.invoke(mIPackageManagerObj,args);
+            }
+        });
+        // 替换  狸猫换太子   换成我们自己的 动态代理
+        sPackageManagerField.set(null,mIPackageManagerProxy);
     }
 }
