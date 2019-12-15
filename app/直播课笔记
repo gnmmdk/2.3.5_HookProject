@@ -1,0 +1,35 @@
+MainActivity  ----> ... （Hook）   AMS(是否Manifest.xml注册了LoginActi)   --->  ActivityThread  --->   实例化LoginActivity
+
+
+int result = ActivityManager.getService()  得到 IActivityManager.startActivity
+
+                .startActivity(whoThread, who.getBasePackageName(), intent,
+                        intent.resolveTypeIfNeeded(who.getContentResolver()),
+                        token, target != null ? target.mEmbeddedID : null,
+                        requestCode, 0, null, options);
+
+
+MainActivity A用户级别进程   ---   Binder（IActivityManager.aidl） ----     AMS （系统进程）
+
+
+=============================================== 下面是第二个Hook的源码
+final ClientTransaction transaction = (ClientTransaction) msg.obj;
+
+private List<ClientTransactionItem> mActivityCallbacks;
+
+ClientTransactionItem 的 子类
+
+LaunchActivityItem {
+
+    private Intent mIntent == new Intent(ProxyActivity.class);
+
+}
+
+==================================================
+组件化 是开源在开发中，商用 没有兼容性
+插件化 在开发中，基本用不到 我们自己写的（用很牛逼企业开源的插件化框架 这种都兼容性不好）
+
+占位式：兼容性 最好的  --> 开发插件的人 很恼火
+
+早期支付宝 用到了插件化  ---->  插件化给剔除   网页缓存框架+自定义浏览器内核
+

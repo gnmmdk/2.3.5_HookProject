@@ -28,9 +28,13 @@ public class MainActivity extends AppCompatActivity {
 //         startActivity(new Intent(this, TestActivity.class));
 //        startActivity(new Intent(this, Test2Activity.class));
 
-        // 宿主中  去启动插件里面的PluginActivity -- (插件里面的Activity)
+        // 宿主中  去启动插件里面的PluginActivity -- (插件里面的Activity) todo test plugin
         Intent intent = new Intent();
         intent.setComponent(new ComponentName("com.kangjj.hook.plugin", "com.kangjj.hook.plugin.PluginActivity"));
         startActivity(intent);
+
+
+        //todo test 9.0
+//        startActivity(new Intent(this, TestActivity.class));
     }
 }
