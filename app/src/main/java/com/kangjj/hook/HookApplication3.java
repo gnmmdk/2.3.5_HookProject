@@ -115,13 +115,13 @@ public class HookApplication3 extends Application {
             switch (msg.what) {
                 case EXECUTE_TRANSACTION:
                     try{
-                        Object mClientTransaction = msg.obj;
+                        Object mClientTransaction = msg.obj;//ClientTransaction
 
                         Field mActivityCallbacksField = mClientTransaction.getClass().getDeclaredField("mActivityCallbacks");
                         mActivityCallbacksField.setAccessible(true);
-                        List mActivityCallbacks = (List) mActivityCallbacksField.get(msg.obj);
+                        List mActivityCallbacks = (List) mActivityCallbacksField.get(msg.obj);//List<ClientTransactionItem>
 
-                        Class<?> mLaunchActivityItemClazz = Class.forName("android.app.servertransaction.LaunchActivityItem");
+                        Class<?> mLaunchActivityItemClazz = Class.forName("android.app.servertransaction.LaunchActivityItem");//LaunchActivityItem extends ClientTransactionItem
 
                         if(mActivityCallbacks.size()==0 ){
                             return false;// 然后 继续 加载 系统的 正常执行下去吧

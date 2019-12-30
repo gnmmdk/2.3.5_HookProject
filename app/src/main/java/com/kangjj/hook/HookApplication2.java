@@ -89,7 +89,7 @@ public class HookApplication2 extends Application {
          * 为了拿到 IActivityManagerSingleton
          *  通过 ActivityManagerNative 拿到 gDefault变量(对象)
          */
-        final Class mActivityManagerClass = Class.forName("android.app.ActivityManager");
+        final Class mActivityManagerClass = Class.forName("android.app.ActivityManager");                                       ////8.0与7.0不同点
         Field mIActivityManagerSingletonField = mActivityManagerClass.getDeclaredField("IActivityManagerSingleton");        //8.0与7.0不同点
         mIActivityManagerSingletonField.setAccessible(true);      // 授权
         Object mIActivityManagerSingletonObj = mIActivityManagerSingletonField.get(null);
@@ -167,7 +167,7 @@ public class HookApplication2 extends Application {
                 case LAUNCH_ACTIVITY:
                     try {
                         // 做我们在自己的业务逻辑（把ProxyActivity 换成  TestActivity）
-                        Object obj = msg.obj;
+                        Object obj = msg.obj;//ActivityThread->ActivityClientRecord
                         // 我们要获取之前Hook携带过来的 TestActivity
                         Field mIntentField = obj.getClass().getDeclaredField("intent");
                         mIntentField.setAccessible(true);
@@ -181,7 +181,7 @@ public class HookApplication2 extends Application {
                             }*/
                             mIntentField.set(obj,actionIntent);
 
-                            /*****************************************LoadedApk方式*******************************************/
+                            /*****************************************LoadedApk方式*******************************************///8.0 LoasdedApk方式会有问题
                             Field activityInfoField = obj.getClass().getDeclaredField("activityInfo");
                             activityInfoField.setAccessible(true);
                             ActivityInfo activityInfo = (ActivityInfo) activityInfoField.get(obj);
@@ -201,7 +201,7 @@ public class HookApplication2 extends Application {
                     }
                     break;
             }
-            mH.handleMessage(msg);      //这里也不传mH进来，但是最后要返回 return false
+            mH.handleMessage(msg);      //这里也可以不传mH进来，但是最后要返回 return false
             return true;        //表示不执行系统的代码
 //            return false;//表示继续执行系统的代码
         }
@@ -221,7 +221,7 @@ public class HookApplication2 extends Application {
         Class baseDexClassLoaderClass = Class.forName("dalvik.system.BaseDexClassLoader");
         Field pathListField= baseDexClassLoaderClass.getDeclaredField("pathList");
         pathListField.setAccessible(true);
-        Object pathListObj = pathListField.get(pathClassLoader);
+        Object pathListObj = pathListField.get(pathClassLoader);//DexPathList对象
 
         Field dexElementsField= pathListObj.getClass().getDeclaredField("dexElements");
         dexElementsField.setAccessible(true);

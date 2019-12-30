@@ -171,7 +171,7 @@ public class HookApplication extends Application {
                 case LAUNCH_ACTIVITY:
                     try {
                         // 做我们在自己的业务逻辑（把ProxyActivity 换成  TestActivity）
-                        Object obj = msg.obj;
+                        Object obj = msg.obj;//ActivityClientRecord
                         // 我们要获取之前Hook携带过来的 TestActivity
                         Field mIntentField = obj.getClass().getDeclaredField("intent");
                         mIntentField.setAccessible(true);
