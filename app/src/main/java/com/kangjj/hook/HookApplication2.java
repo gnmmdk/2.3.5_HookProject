@@ -200,7 +200,8 @@ public class HookApplication2 extends Application {
         Object dexElements = dexElementsField.get(pathListObj);
 
         // 第二步：找到插件 dexElements 得到此对象，代表插件 DexClassLoader--代表插件
-        pluginFile = new File(Environment.getExternalStorageDirectory() + File.separator + "kangjj.plugin");
+//        pluginFile = new File(Environment.getExternalStorageDirectory() + File.separator + "kangjj.plugin");
+        pluginFile = new File("/sdcard/kangjj.plugin");
         if (!pluginFile.exists()) {
             throw new FileNotFoundException("没有找到插件包!!");
         }
