@@ -329,7 +329,7 @@ public class HookApplication extends Application {
         ApplicationInfo applicationInfo = getApplicationInfoAction();
 
         //todo 2  ActivityThread 使用getPackageInfoNoCheck创建LoadedApk，以供下方加入到mPackages，applicationInfo怎么获取？看todo3
-        // CompatibilityInfo获取到类 实例化就行
+        // CompatibilityInfo加载类 实例化就行
         //public final LoadedApk getPackageInfoNoCheck(ApplicationInfo ai,CompatibilityInfo compatInfo)
         Method mGetPackageInfoNoCheckMethod = mActivityThreadClazz.getMethod("getPackageInfoNoCheck", ApplicationInfo.class, mCompatibilityInfoClazz);
         Object mLoadedApk = mGetPackageInfoNoCheckMethod.invoke(mActivityThreadObj,applicationInfo , mCompatibilityInfoObj);
@@ -366,17 +366,17 @@ public class HookApplication extends Application {
         Object mPackageUserStateObj = mPackageUserStateClazz.newInstance();
         Method mGenerateApplicationInfoMethod = mPackageParserClazz.getMethod("generateApplicationInfo", mPackageClazz, int.class, mPackageUserStateClazz);
 
-        //todo 2 通过PackageParser类的parsePackage方法获取Package
+        //todo 3.2 通过PackageParser类的parsePackage方法获取Package
 //        public Package parsePackage(File packageFile, int flags)
         Method mParsePackageMethod = mPackageParserClazz.getMethod("parsePackage", File.class, int.class);
         Object mPackageObj = mParsePackageMethod.invoke(mPackageParserObj, pluginFile, PackageManager.GET_ACTIVITIES);
 
-        //todo 1 通过PackageParser类里面的generateApplicationInfo方法获取到ApplicationInfo
+        //todo 3.1 通过PackageParser类里面的generateApplicationInfo方法获取到ApplicationInfo
         // Package如何获取？PackageUserState直接newInstance就行了
 //        public static ApplicationInfo generateApplicationInfo(Package p, int flags,PackageUserState state)
         ApplicationInfo applicationInfo = (ApplicationInfo) mGenerateApplicationInfoMethod.invoke(null, mPackageObj, 0, mPackageUserStateObj);
 
-        //todo 3 设置 applicationInfo.publicSourceDir和applicationInfo.sourceDir
+        //todo 3.3 设置 applicationInfo.publicSourceDir和applicationInfo.sourceDir
 
         // 获得的 ApplicationInfo 就是插件的 ApplicationInfo
         // 我们这里获取的 ApplicationInfo
@@ -411,7 +411,7 @@ public class HookApplication extends Application {
         });
         // todo 4.1 ActivityThread里面的（IPackageManager sPackageManager）换成动态代理的
         //  为什么要这样换？LAUNCH_ACTIVITY -> handleLaunchActivity->performLaunchActivity -> r.packageInfo.makeApplication
-        //  ->initializeJavaContextClassLoader-> pm.getPackageInfo ，jni调用到ActivityManagerService里面进行校验
+        //  ->initializeJavaContextClassLoader-> pm.getPackageInfo ，jni调用到PackageManagerService里面进行校验
         // 替换  狸猫换太子   换成我们自己的 动态代理
         sPackageManagerField.set(null,mIPackageManagerProxy);
     }
